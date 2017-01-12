@@ -23,9 +23,11 @@ const USERDATA string = "user-data"
 const METADATA string = "meta-data"
 
 type defCloudInit struct {
-	Name     string
-	PoolName string
-	Metadata struct {
+	Name         string
+	PoolName     string
+	UserDataPath string
+	Volid        string
+	Metadata     struct {
 		LocalHostname string `yaml:"local-hostname,omitempty"`
 		InstanceID    string `yaml:"instance-id"`
 	}
@@ -142,10 +144,15 @@ func getCloudInitVolumeKeyFromTerraformID(id string) (string, error) {
 // Create the ISO holding all the cloud-init data
 // Returns a string with the full path to the ISO file
 func (ci *defCloudInit) createISO() (string, error) {
+	var volid string = "cidata"
 	log.Print("Creating new ISO")
 	tmpDir, err := ci.createFiles()
 	if err != nil {
 		return "", err
+	}
+
+	if ci.Volid != "" {
+		volid = ci.Volid
 	}
 
 	isoDestination := filepath.Join(tmpDir, ci.Name)
@@ -154,11 +161,10 @@ func (ci *defCloudInit) createISO() (string, error) {
 		"-output",
 		isoDestination,
 		"-volid",
-		"cidata",
+		volid,
 		"-joliet",
 		"-rock",
-		filepath.Join(tmpDir, USERDATA),
-		filepath.Join(tmpDir, METADATA))
+		filepath.Join(tmpDir))
 
 	log.Print("About to execute cmd: %+v", cmd)
 	if err = cmd.Run(); err != nil {
@@ -174,6 +180,7 @@ func (ci *defCloudInit) createISO() (string, error) {
 // Returns a string containing the name of the temporary directory and an error
 // object
 func (ci *defCloudInit) createFiles() (string, error) {
+	var user_data string = USERDATA
 	log.Print("Creating ISO contents")
 	tmpDir, err := ioutil.TempDir("", "cloudinit")
 	if err != nil {
@@ -186,9 +193,20 @@ func (ci *defCloudInit) createFiles() (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("Error dumping cloudinit's user data: %s", err)
 	}
+
+	if ci.UserDataPath != "" {
+		user_data = ci.UserDataPath
+		if fpath := filepath.Dir(ci.UserDataPath); fpath != "" {
+			fpath = filepath.Join(tmpDir, fpath)
+			if err := os.MkdirAll(fpath, 0777); err != nil {
+				return "", fmt.Errorf("Error making directory: %s", err)
+			}
+		}
+	}
+
 	userdata := fmt.Sprintf("#cloud-config\n%s", string(ud))
 	if err = ioutil.WriteFile(
-		filepath.Join(tmpDir, USERDATA),
+		filepath.Join(tmpDir, user_data),
 		[]byte(userdata),
 		os.ModePerm); err != nil {
 		return "", fmt.Errorf("Error while writing user-data to file: %s", err)

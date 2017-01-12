@@ -33,6 +33,16 @@ func resourceCloudInit() *schema.Resource {
 				Optional: true,
 				ForceNew: true,
 			},
+			"volid": &schema.Schema{
+				Type:	  schema.TypeString,
+				Optional: true,
+				ForceNew: true,
+			},
+			"user_data": &schema.Schema{
+				Type:	  schema.TypeString,
+				Optional: true,
+				ForceNew: true,
+			},
 		},
 	}
 }
@@ -56,6 +66,8 @@ func resourceCloudInitCreate(d *schema.ResourceData, meta interface{}) error {
 
 	cloudInit.Name = d.Get("name").(string)
 	cloudInit.PoolName = d.Get("pool").(string)
+	cloudInit.UserDataPath = d.Get("user_data").(string)
+	cloudInit.Volid = d.Get("volid").(string)
 
 	log.Printf("[INFO] cloudInit: %+v", cloudInit)
 
