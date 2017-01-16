@@ -19,13 +19,16 @@ import (
 )
 
 // names of the files expected by cloud-init
-const USERDATA string = "user-data"
+// const USERDATA string = "user-data"
 const METADATA string = "meta-data"
 
 type defCloudInit struct {
-	Name     string
-	PoolName string
-	Metadata struct {
+	Name            string
+	PoolName        string
+	UserDataPath    string
+	Volid           string
+	UserDataContent string
+	Metadata        struct {
 		LocalHostname string `yaml:"local-hostname,omitempty"`
 		InstanceID    string `yaml:"instance-id"`
 	}
@@ -154,11 +157,10 @@ func (ci *defCloudInit) createISO() (string, error) {
 		"-output",
 		isoDestination,
 		"-volid",
-		"cidata",
+		ci.Volid,
 		"-joliet",
 		"-rock",
-		filepath.Join(tmpDir, USERDATA),
-		filepath.Join(tmpDir, METADATA))
+		filepath.Join(tmpDir))
 
 	log.Print("About to execute cmd: %+v", cmd)
 	if err = cmd.Run(); err != nil {
@@ -174,6 +176,7 @@ func (ci *defCloudInit) createISO() (string, error) {
 // Returns a string containing the name of the temporary directory and an error
 // object
 func (ci *defCloudInit) createFiles() (string, error) {
+	var userdata string
 	log.Print("Creating ISO contents")
 	tmpDir, err := ioutil.TempDir("", "cloudinit")
 	if err != nil {
@@ -186,9 +189,21 @@ func (ci *defCloudInit) createFiles() (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("Error dumping cloudinit's user data: %s", err)
 	}
-	userdata := fmt.Sprintf("#cloud-config\n%s", string(ud))
+
+	if fpath := filepath.Dir(ci.UserDataPath); fpath != "" {
+		fpath = filepath.Join(tmpDir, fpath)
+		if err := os.MkdirAll(fpath, 0777); err != nil {
+			return "", fmt.Errorf("Error making directory: %s", err)
+		}
+	}
+
+	if ci.UserDataContent != "" {
+		userdata = ci.UserDataContent
+	} else {
+		userdata = fmt.Sprintf("#cloud-config\n%s", string(ud))
+	}
 	if err = ioutil.WriteFile(
-		filepath.Join(tmpDir, USERDATA),
+		filepath.Join(tmpDir, ci.UserDataPath),
 		[]byte(userdata),
 		os.ModePerm); err != nil {
 		return "", fmt.Errorf("Error while writing user-data to file: %s", err)
@@ -270,7 +285,7 @@ func newCloudInitDefFromRemoteISO(virConn *libvirt.VirConnection, id string) (de
 		if f.Name() == "/user_dat." {
 			data, err := ioutil.ReadAll(f.Sys().(io.Reader))
 			if err != nil {
-				return ci, fmt.Errorf("Error while reading %s: %s", USERDATA, err)
+				return ci, fmt.Errorf("Error while reading %s: %s", ci.UserDataPath, err)
 			}
 			if err := yaml.Unmarshal(data, &ci.UserData); err != nil {
 				return ci, fmt.Errorf("Error while unmarshalling user-data: %s", err)
