@@ -73,6 +73,13 @@ func resourceLibvirtDomain() *schema.Resource {
 				Optional: true,
 				ForceNew: false,
 			},
+			"coreos_ignition": &schema.Schema{
+				Type:     schema.TypeString,
+				Required: false,
+				Optional: true,
+				ForceNew: false,
+				Default:  "",
+			},
 			"disk": &schema.Schema{
 				Type:     schema.TypeList,
 				Optional: true,
@@ -89,6 +96,11 @@ func resourceLibvirtDomain() *schema.Resource {
 				Elem: &schema.Resource{
 					Schema: networkInterfaceCommonSchema(),
 				},
+			},
+			"graphics": &schema.Schema{
+				Type: schema.TypeMap,
+				Optional: true,
+				Required: false,
 			},
 		},
 	}
@@ -115,12 +127,39 @@ func resourceLibvirtDomainCreate(d *schema.ResourceData, meta interface{}) error
 	}
 
 	domainDef := newDomainDef()
+
 	if name, ok := d.GetOk("name"); ok {
 		domainDef.Name = name.(string)
 	}
 
 	if metadata, ok := d.GetOk("metadata"); ok {
 		domainDef.Metadata.TerraformLibvirt.Xml = metadata.(string)
+	}
+
+	if ignition, ok := d.GetOk("coreos_ignition"); ok {
+		ignitionFile := ignition.(string)
+		if _, err := os.Stat(ignitionFile); os.IsNotExist(err) {
+			return fmt.Errorf("Could not find ignition file '%s'", ignitionFile)
+		}
+		var fw_cfg []defCmd
+		ign_str := fmt.Sprintf("name=opt/com.coreos/config,file=%s", ignitionFile)
+		fw_cfg = append(fw_cfg, defCmd{"-fw_cfg"})
+		fw_cfg = append(fw_cfg, defCmd{ign_str})
+		domainDef.CmdLine.Cmd = fw_cfg
+		domainDef.Xmlns = "http://libvirt.org/schemas/domain/qemu/1.0"
+	}
+
+	if graphics, ok := d.GetOk("graphics"); ok {
+		graphics_map := graphics.(map[string]interface{})
+		if graphics_type, ok := graphics_map["type"]; ok {
+			domainDef.Devices.Graphics.Type = graphics_type.(string)
+		}
+		if autoport, ok := graphics_map["autoport"]; ok {
+			domainDef.Devices.Graphics.Type = autoport.(string)
+		}
+		if listen_type, ok := graphics_map["listen_type"]; ok {
+			domainDef.Devices.Graphics.Listen.Type = listen_type.(string)
+		}
 	}
 
 	if firmware, ok := d.GetOk("firmware"); ok {

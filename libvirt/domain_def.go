@@ -8,6 +8,7 @@ type defDomain struct {
 	XMLName  xml.Name  `xml:"domain"`
 	Name     string    `xml:"name"`
 	Type     string    `xml:"type,attr"`
+	Xmlns    string    `xml:"xmlns:qemu,attr"`
 	Os       defOs     `xml:"os"`
 	Memory   defMemory `xml:"memory"`
 	VCpu     defVCpu   `xml:"vcpu"`
@@ -23,7 +24,7 @@ type defDomain struct {
 	Devices struct {
 		Disks             []defDisk             `xml:"disk"`
 		NetworkInterfaces []defNetworkInterface `xml:"interface"`
-		Graphics struct {
+		Graphics          struct {
 			Type     string `xml:"type,attr"`
 			Autoport string `xml:"autoport,attr"`
 			Listen   struct {
@@ -48,6 +49,10 @@ type defDomain struct {
 			} `xml:"backend"`
 		} `xml:"rng"`
 	} `xml:"devices"`
+	CmdLine struct {
+		XMLName xml.Name `xml:"qemu:commandline"`
+		Cmd     []defCmd `xml:"qemu:arg"`
+	}
 }
 
 type defMetadata struct {
@@ -77,6 +82,10 @@ type defVCpu struct {
 	Amount    int    `xml:",chardata"`
 }
 
+type defCmd struct {
+	Value string `xml:"value,attr"`
+}
+
 type defLoader struct {
 	ReadOnly string `xml:"readonly,attr,omitempty"`
 	Type     string `xml:"type,attr,omitempty"`
@@ -94,6 +103,7 @@ func newDomainDef() defDomain {
 	// libvirt domain definition
 	domainDef := defDomain{}
 	domainDef.Type = "kvm"
+	domainDef.Xmlns = ""
 
 	domainDef.Os = defOs{}
 	domainDef.Os.Type = defOsType{}

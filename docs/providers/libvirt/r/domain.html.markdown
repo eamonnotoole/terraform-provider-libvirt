@@ -41,6 +41,13 @@ The following arguments are supported:
   cloud-init won't cause the domain to be recreated, however the change will
   have effect on the next reboot.
 
+The following extra argument is provided for CoreOS images:
+
+* `coreos_ignition` - (Optional) The name of a CoreOS Ignition file.
+
+Note that to make use of Ignition files with CoreOS the host must be running
+QEMU v2.6 or greater.
+
 Some extra arguments are also provided for using UEFI images:
 
 * `firmware` - (Optional) The UEFI rom images for exercising UEFI secure boot in a qemu
@@ -145,6 +152,26 @@ resource "libvirt_domain" "my_machine" {
 }
 ```
 
+The optional `graphics` block allows you to override the default graphics settings.  The
+block supports:
+
+* `type` - the type of graphics emulation (default is "spice")
+* `autoport` - defaults to "yes"
+* `listen_type` - "listen type", defaults to "none"
+
+On occasion we have found it necessary to set a `type` of "vnc" and a `listen_type` of "address"
+with certain builds of QEMU.
+
+The `graphics` block will look as follows:
+```
+resource "libvirt_domain" "my_machine" {
+  ...
+  graphics {
+    type = "vnc"
+    listen_type = "address"
+  }
+}
+```
 The `network_interface` specifies a network interface that can be connected either to
 a virtual network (the preferred method on hosts with dynamic / wireless networking
 configs) or directly to a LAN.

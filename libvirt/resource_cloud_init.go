@@ -88,7 +88,7 @@ func resourceCloudInitCreate(d *schema.ResourceData, meta interface{}) error {
 	cloudInit.PoolName = d.Get("pool").(string)
 	cloudInit.UserDataPath = d.Get("user_data_path").(string)
 	cloudInit.Volid = d.Get("volid").(string)
-	cloudInit.UserDataContent = d.Get("user_data").(string)
+	cloudInit.UserDataContent = userDataDecode(d.Get("user_data").(string))
 
 	if cloudInit.UserDataContent != "" && sshKey != "" {
 		log.Printf("[WARN] Both user_data and ssh_authorized_keys specified, will only use user_data")
